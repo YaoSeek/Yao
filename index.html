@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的中国5A景区足迹 - 358家全收录</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 SheetJS 用于Excel导出 -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0ea5e9; 
+        }
+
+        /* 霓虹光效类 */
+        .neon-text {
+            text-shadow: 0 0 5px #0ea5e9, 0 0 10px #0ea5e9;
+        }
+        .neon-box {
+            box-shadow: 0 0 5px rgba(14, 165, 233, 0.3);
+            transition: all 0.3s ease;
+        }
+        .neon-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.6);
+            border-color: #0ea5e9;
+        }
+        
+        /* 单行横向滚动布局 */
+        .province-row {
+            display: flex;
+            overflow-x: auto;
+            gap: 1rem;
+            padding-bottom: 1rem;
+            padding-top: 0.5rem;
+            scroll-behavior: smooth;
+        }
+        .card {
+            flex: 0 0 300px; /* 固定卡片宽度 */
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+        }
+
+        /* 状态选中样式 */
+        input[type="radio"]:checked + label {
+            background-color: #0ea5e9;
+            color: white;
+            font-weight: bold;
+        }
+        input[type="radio"].plan:checked + label {
+            background-color: #f59e0b;
+        }
+        input[type="radio"].ignore:checked + label {
+            background-color: #64748b;
+        }
+
+        /* 加载动画 */
+        .img-loading {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- 顶部控制台 -->
+    <header class="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-700 shadow-2xl">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white text-xl">5A</div>
+                    <div>
+                        <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">我的中国5A景区足迹</h1>
+                        <p class="text-xs text-slate-400">共收录全国 358 家5A级景区（截止2025年12月）</p>
+                    </div>
+                </div>
+
+                <!-- 游客信息输入 -->
+                <div class="flex gap-3 bg-slate-800 p-2 rounded-lg border border-slate-700">
+                    <input type="text" id="visitorName" placeholder="我的姓名" class="bg-transparent border-none text-sm focus:ring-0 text-white w-24 placeholder-slate-500">
+                    <div class="w-px bg-slate-600"></div>
+                    <input type="date" id="recordDate" class="bg-transparent border-none text-sm focus:ring-0 text-white w-32 text-slate-400">
+                </div>
+
+                <!-- 统计仪表盘 -->
+                <div class="flex gap-4 text-sm font-mono">
+                    <div class="text-center">
+                        <div class="text-cyan-400 font-bold text-lg" id="stat-visited">0</div>
+                        <div class="text-xs text-slate-500">已游览</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-amber-400 font-bold text-lg" id="stat-plan">0</div>
+                        <div class="text-xs text-slate-500">计划去</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-slate-400 font-bold text-lg" id="stat-total">358</div>
+                        <div class="text-xs text-slate-500">总数</div>
+                    </div>
+                </div>
+
+                <button onclick="exportToExcel()" class="px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-full font-semibold transition shadow-lg shadow-emerald-900/50 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    导出 Excel
+                </button>
+            </div>
+        </div>
+    </header>
+    <!-- 主要内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-8 space-y-8" id="scenic-container">
+        <!-- JS 将在这里动态渲染省份和景区 -->
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-8 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-slate-400 text-sm mb-2">数据来源：文化和旅游部 (截至2025年12月)</p>
+            <p class="text-slate-400 text-sm mb-2">
+                系统策划：YaoSeek工作室
+            </p>
+        </div>
+    </footer>
+
+    <!-- 脚本逻辑 -->
+    <script>
+        // 358家5A景区完整数据 (按省份分组)
+        // 数据来源：文化和旅游部     更新时间：2025年12月
+        const scenicData = {
+            "北京": [
+                {name: "故宫博物院", city: "北京", intro: "明清皇家宫殿，世界五大宫之首，中华文明的瑰宝。"},
+                {name: "天坛公园", city: "北京", intro: "明清皇帝祭天祈谷之所，世界最大的祭天建筑群。"},
+                {name: "颐和园", city: "北京", intro: "皇家园林博物馆，山水长廊，移步换景。"},
+                {name: "八达岭长城景区", city: "北京", intro: "万里长城，雄伟险峻，气势磅礴，世界文化遗产。"}, // 拆分补充
+                {name: "慕田峪长城景区", city: "北京", intro: "秀美长城，植被茂密，外国游客钟爱。"}, // 拆分补充
+                {name: "明十三陵景区", city: "北京", intro: "明朝十三位皇帝的陵寝，世界文化遗产。"},
+                {name: "恭王府景区", city: "北京", intro: "一座恭王府，半部清代史，清代规模最大的一座王府。"},
+                {name: "奥林匹克公园", city: "北京", intro: "08年奥运主场馆，鸟巢水立方见证体育辉煌。"},
+                {name: "圆明园遗址公园", city: "北京", intro: "万园之园的遗址，铭记历史，鉴往知来。"},
+                {name: "北京（通州）大运河文化旅游景区", city: "北京", intro: "千年运河，水波为笔，描绘副中心生态画卷。"}
+            ],
+            "天津": [
+                {name: "天津古文化街旅游区", city: "天津", intro: "津门故里，妈祖文化与津味民俗的集大成者。"},
+                {name: "盘山风景名胜区", city: "天津", intro: "京东第一山，乾隆皇帝曾三十二次巡游至此。"}
+            ],
+            "河北": [
+                {name: "承德避暑山庄及周围寺庙景区", city: "承德", intro: "清代皇家避暑胜地，中国现存最大的古典皇家园林。"},
+                {name: "保定市野三坡景区", city: "保定", intro: "北方小桂林，雄山碧水，峡谷幽深。"},
+                {name: "石家庄市西柏坡景区", city: "石家庄", intro: "新中国从这里走来，红色革命圣地。"},
+                {name: "唐山市清东陵景区", city: "唐山", intro: "清代帝王陵寝，中国现存规模宏大的帝王陵墓建筑群。"},
+                {name: "邯郸市娲皇宫景区", city: "邯郸", intro: "神话传说中女娲抟土造人、炼石补天的地方。"},
+                {name: "邯郸市广府古城景区", city: "邯郸", intro: "杨式、武式太极拳发源地，水上古城。"},
+                {name: "保定市白石山景区", city: "保定", intro: "大理岩峰林地貌，云端栈道，惊险刺激。"},
+                {name: "秦皇岛市山海关景区", city: "秦皇岛", intro: "天下第一关，万里长城东部起点。"},
+                {name: "保定市清西陵景区", city: "保定", intro: "清代皇家陵寝，松柏参天，古建典雅。"},
+                {name: "承德市金山岭长城景区", city: "承德", intro: "万里长城，金山独秀，摄影爱好者的天堂。"},
+                {name: "唐山市南湖·开滦旅游景区", city: "唐山", intro: "化腐朽为神奇，采煤沉降区变身城市中央公园。"},
+                {name: "衡水市衡水湖旅游景区", city: "衡水", intro: "东亚蓝宝石，华北平原惟一保持沼泽、水域、滩涂等完整湿地生态系统的自然保护区。"},
+                {name: "保定市白洋淀景区", city: "雄安新区", intro: "华北明珠，荷花淀，孙犁笔下的水乡。"} // 补充遗漏
+            ],
+            "山西": [
+                {name: "大同市云冈石窟景区", city: "大同", intro: "中国四大石窟之一，公元五世纪中国石窟艺术之冠。"},
+                {name: "忻州市五台山风景名胜区", city: "忻州", intro: "文殊菩萨道场，中国佛教四大名山之首。"},
+                {name: "晋城市皇城相府生态文化旅游区", city: "晋城", intro: "康熙帝师陈廷敬故居，东方古堡。"},
+                {name: "晋中市绵山风景区", city: "晋中", intro: "寒食节发源地，峭壁上的道教名山。"},
+                {name: "晋中市平遥古城景区", city: "晋中", intro: "保存最为完好的四大古城之一，晋商文化中心。"},
+                {name: "忻州市雁门关景区", city: "忻州", intro: "中华第一关，杨家将镇守之地。"},
+                {name: "临汾市洪洞大槐树寻根祭祖园", city: "临汾", intro: "问我祖先在何处，山西洪洞大槐树。"},
+                {name: "长治市太行山大峡谷八泉峡景区", city: "长治", intro: "太行山水精华，高峡平湖，雄奇险秀。"},
+                {name: "临汾市云丘山景区", city: "临汾", intro: "中和节发源地，罕见的冰洞群奇观。"},
+                {name: "晋中市乔家大院景区", city: "晋中", intro: "皇家有故宫，民宅看乔家，晋商大院巅峰。"},
+                {name: "太原市晋祠天龙山景区", city: "太原", intro: "三晋之胜，以晋祠为最；天龙山石窟，跨越千年的微笑。"},
+                {name: "临汾市黄河壶口瀑布旅游区", city: "临汾", intro: "源出昆仑衍大流，玉关九转一壶收。"} // 补充山西侧壶口
+            ],
+            "内蒙古": [
+                {name: "鄂尔多斯市响沙湾旅游景区", city: "鄂尔多斯", intro: "会唱歌的沙子，沙漠中的休闲度假胜地。"},
+                {name: "鄂尔多斯市成吉思汗陵旅游区", city: "鄂尔多斯", intro: "一代天骄长眠地，蒙古族文化祭祀中心。"},
+                {name: "呼伦贝尔市中俄边境旅游区", city: "呼伦贝尔", intro: "一眼望两国，满洲里国门，异域风情浓郁。"},
+                {name: "兴安盟阿尔山-柴河旅游景区", city: "兴安盟", intro: "火山地质博物馆，四季皆景的童话世界。"},
+                {name: "赤峰市阿斯哈图石林景区", city: "赤峰", intro: "第四纪冰川遗迹，花岗岩石林奇观。"},
+                {name: "阿拉善盟胡杨林旅游区", city: "阿拉善", intro: "生而一千年不死，死而一千年不倒，金色童话。"},
+                {name: "呼伦贝尔大草原·莫尔格勒河景区", city: "呼伦贝尔", intro: "天下第一曲水，风吹草低见牛羊。"},
+                {name: "呼和浩特市老牛湾黄河大峡谷旅游区", city: "呼和浩特", intro: "长城与黄河握手之地，中国最美的十大峡谷之一。"}
+            ],
+            "辽宁": [
+                {name: "沈阳市植物园", city: "沈阳", intro: "世博园旧址，百合塔下花团锦簇。"},
+                {name: "大连市老虎滩海洋公园·老虎滩极地馆", city: "大连", intro: "展示极地海洋动物，海滨风光秀丽。"},
+                {name: "大连市金石滩景区", city: "大连", intro: "凝固的动物世界，神力雕塑公园。"},
+                {name: "本溪市本溪水洞景区", city: "本溪", intro: "世界最长充水溶洞，钟乳奇观。"},
+                {name: "鞍山市千山景区", city: "鞍山", intro: "东北明珠，无峰不奇，无石不峭。"},
+                {name: "盘锦市红海滩风景廊道景区", city: "盘锦", intro: "世界最大的芦苇荡，火红的碱蓬草海岸。"},
+                {name: "本溪市五女山景区", city: "本溪", intro: "高句丽发祥地，山城遗址，历史厚重。"}
+            ],
+            "吉林": [
+                {name: "长春市伪满皇宫博物院", city: "长春", intro: "末代皇帝溥仪的宫廷，警示历史。"},
+                {name: "长白山景区", city: "延边", intro: "千年积雪万年松，直上人间第一峰，天池圣境。"},
+                {name: "长春市净月潭景区", city: "长春", intro: "亚洲最大的人工林海，城市的绿肺。"},
+                {name: "长春市长影世纪城景区", city: "长春", intro: "东方好莱坞，电影特效主题公园。"},
+                {name: "敦化市六鼎山文化旅游区", city: "延边", intro: "金鼎大佛，世界最高释迦牟尼青铜坐佛。"},
+                {name: "通化市高句丽文物古迹旅游景区", city: "通化", intro: "世界文化遗产，东方金字塔。"},
+                {name: "松原市前郭查干湖景区", city: "松原", intro: "冬捕奇观，最后的渔猎部落。"},
+                {name: "白城市大安嫩江湾旅游区", city: "白城", intro: "千里嫩江，湾在同城，湿地生态画廊。"}
+            ],
+            "黑龙江": [
+                {name: "哈尔滨市太阳岛景区", city: "哈尔滨", intro: "松花江畔的明珠，冰雪艺术的殿堂。"},
+                {name: "黑河市五大连池景区", city: "黑河", intro: "天然火山地质博物馆，打开的火山教科书。"},
+                {name: "牡丹江市镜泊湖景区", city: "牡丹江", intro: "高山堰塞湖，吊水楼瀑布飞流直下。"},
+                {name: "伊春市汤旺河林海奇石景区", city: "伊春", intro: "红松故乡，花岗岩石林，天然氧吧。"},
+                {name: "漠河市北极村旅游区", city: "大兴安岭", intro: "神州北极，寻找极光，体验极寒。"},
+                {name: "虎林市虎头旅游景区", city: "鸡西", intro: "乌苏里江畔，二战终结地。"},
+                {name: "齐齐哈尔市扎龙生态旅游区", city: "齐齐哈尔", intro: "丹顶鹤的故乡，世界大湿地，中国鹤家乡。"}
+            ],
+            "上海": [
+                {name: "东方明珠广播电视塔", city: "上海", intro: "上海地标，云端漫步，俯瞰魔都繁华。"},
+                {name: "上海野生动物园", city: "上海", intro: "中国首座国家级野生动物园，人与动物和谐共处。"},
+                {name: "上海科技馆", city: "上海", intro: "科普圣地，体验科技魅力。"},
+                {name: "中共一大·二大·四大纪念馆景区", city: "上海", intro: "中国共产党的诞生地，红色初心始发地。"},
+                {name: "崇明区西沙明珠湖景区", city: "上海", intro: "长江门户，湿地生态，候鸟天堂。"}
+            ],
+            "江苏": [
+                {name: "南京市钟山风景名胜区-中山陵园风景区", city: "南京", intro: "龙盘虎踞，国父陵寝，近代建筑典范。"},
+                {name: "南京市夫子庙-秦淮风光带景区", city: "南京", intro: "烟笼寒水月笼沙，夜泊秦淮近酒家。"},
+                {name: "苏州市拙政园", city: "苏州", intro: "中国园林之母，咫尺之内再造乾坤。"},
+                {name: "苏州市虎丘山风景名胜区", city: "苏州", intro: "吴中第一名胜，云岩寺塔斜而不倒。"},
+                {name: "苏州市周庄古镇景区", city: "苏州", intro: "中国第一水乡，小桥流水人家。"},
+                {name: "无锡市灵山景区", city: "无锡", intro: "灵山大佛，梵宫瑰宝，佛教文化胜地。"},
+                {name: "无锡市鼋头渚景区", city: "无锡", intro: "太湖佳绝处，毕竟在鼋头。"},
+                {name: "扬州市瘦西湖风景区", city: "扬州", intro: "两岸花柳全依水，一路楼台直到山。"},
+                {name: "常州市环球恐龙城休闲旅游区", city: "常州", intro: "东方侏罗纪，恐龙主题乐园。"},
+                {name: "常州市天目湖景区", city: "常州", intro: "江南明珠，御水温泉，竹海听涛。"},
+                {name: "镇江市三山风景名胜区", city: "镇江", intro: "金山、焦山、北固山，满眼风光北固楼。"},
+                {name: "南通市濠河景区", city: "南通", intro: "城在水中坐，水在城中流，少女脖上的项链。"},
+                {name: "姜堰市溱湖旅游景区", city: "泰州", intro: "湿地生态，麋鹿故乡，溱彤会船。"},
+                {name: "苏州市同里古镇景区", city: "苏州", intro: "醇正水乡，旧时江南，退思园精巧别致。"},
+                {name: "苏州市金鸡湖景区", city: "苏州", intro: "开放式城市湖泊公园，现代苏州的象征。"},
+                {name: "盐城市中华麋鹿园景区", city: "盐城", intro: "世界最大的麋鹿自然保护区。"},
+                {name: "徐州市云龙湖景区", city: "徐州", intro: "徐州西湖，三面云山一面城。"},
+                {name: "连云港市花果山景区", city: "连云港", intro: "孙大圣故里，海内四大灵山之一。"},
+                {name: "常州市春秋淹城旅游区", city: "常州", intro: "三城三河，春秋遗址，诸子百家。"},
+                {name: "无锡市惠山古镇景区", city: "无锡", intro: "露天祠堂博物馆，泥人故乡。"},
+                {name: "淮安市周恩来故里旅游景区", city: "淮安", intro: "一代伟人，以此为始，鞠躬尽瘁。"},
+                {name: "盐城市荷兰花海景区", city: "盐城", intro: "郁金香的海洋，异国风情。"},
+                {name: "宿迁市洪泽湖湿地景区", city: "宿迁", intro: "华东绿肺，荷花大观园。"},
+                {name: "苏州市吴中太湖旅游区", city: "苏州", intro: "太湖风光，东山、西山、光福，尽显吴越文化。"},
+                {name: "苏州市沙家浜·虞山尚湖旅游区", city: "苏州", intro: "芦荡火种，红色经典与自然山水的结合。"},
+                {name: "连云港市连岛景区", city: "连云港", intro: "海天一色，江苏最大海岛。"}
+            ],
+            "浙江": [
+                {name: "杭州市西湖风景名胜区", city: "杭州", intro: "欲把西湖比西子，淡妆浓抹总相宜。"},
+                {name: "温州市雁荡山风景名胜区", city: "温州", intro: "海上名山，寰中绝胜，流纹岩峰林。"},
+                {name: "舟山市普陀山风景名胜区", city: "舟山", intro: "海天佛国，观音道场，南海圣境。"},
+                {name: "杭州市千岛湖风景名胜区", city: "杭州", intro: "天下第一秀水，千岛玉珠。"},
+                {name: "宁波市奉化溪口-滕头旅游景区", city: "宁波", intro: "蒋氏故里，民国风情，生态乡村。"},
+                {name: "嘉兴市乌镇古镇旅游区", city: "嘉兴", intro: "枕水人家，互联网大会永久举办地。"},
+                {name: "金华市横店影视城景区", city: "金华", intro: "中国好莱坞，穿越时空的造梦工厂。"},
+                {name: "嘉兴市南湖旅游区", city: "嘉兴", intro: "红船起航地，革命圣火。"},
+                {name: "杭州市西溪湿地旅游区", city: "杭州", intro: "城市绿肾，非诚勿扰取景地。"},
+                {name: "绍兴市鲁迅故里·沈园景区", city: "绍兴", intro: "从百草园到三味书屋，聆听先生教诲。"},
+                {name: "衢州市开化根宫佛国文化旅游区", city: "衢州", intro: "世界根雕艺术之都，化腐朽为神奇。"},
+                {name: "湖州市南浔古镇景区", city: "湖州", intro: "中西合璧，巨贾之镇，辑里湖丝。"},
+                {name: "台州市天台山景区", city: "台州", intro: "佛宗道源，山水神秀。"},
+                {name: "台州市神仙居景区", city: "台州", intro: "神仙居住的地方，如意桥惊险刺激。"},
+                {name: "嘉兴市西塘古镇旅游景区", city: "嘉兴", intro: "烟雨长廊，活着的千年古镇。"},
+                {name: "宁波市天一阁·月湖景区", city: "宁波", intro: "书藏古今，港通天下，现存最古老的藏书楼。"},
+                {name: "温州市刘伯温故里景区", city: "温州", intro: "帝师故里，百丈漈飞瀑震天。"},
+                {name: "台州市台州府城文化旅游区", city: "台州", intro: "江南长城，宋韵临海。"},
+                {name: "丽水市缙云仙都景区", city: "丽水", intro: "天然摄影棚，鼎湖峰拔地而起。"},
+                {name: "丽水市云和梯田景区", city: "丽水", intro: "云雾奇观，中国最美梯田。"},
+                {name: "金华市双龙风景旅游区", city: "金华", intro: "卧舟入洞，双龙蜿蜒，叶圣陶笔下的奇观。"},
+                {name: "衢州市江郎山·廿八都景区", city: "衢州", intro: "丹霞奇峰，千年古镇，遗落在大山里的梦。"} // 补充遗漏
+            ],
+            "安徽": [
+                {name: "黄山市黄山风景区", city: "黄山", intro: "五岳归来不看山，黄山归来不看岳。"},
+                {name: "池州市九华山风景区", city: "池州", intro: "地藏菩萨道场，莲花佛国。"},
+                {name: "黄山市皖南古村落—西递宏村", city: "黄山", intro: "中国画里的乡村，徽派建筑活化石。"},
+                {name: "安庆市天柱山风景区", city: "安庆", intro: "江淮第一山，古南岳。"},
+                {name: "六安市天堂寨旅游景区", city: "六安", intro: "华东最后一片原始森林，吴楚东南第一关。"},
+                {name: "宣城市绩溪龙川景区", city: "宣城", intro: "木雕艺术殿堂，胡氏宗祠。"},
+                {name: "阜阳市八里河风景区", city: "阜阳", intro: "皖北水乡，天下第一农民公园。"},
+                {name: "黄山市古徽州文化旅游区", city: "黄山", intro: "一生痴绝处，无梦到徽州。"},
+                {name: "合肥市三河古镇景区", city: "合肥", intro: "八古景观，江淮水乡，孙立人故居。"},
+                {name: "芜湖市方特旅游区", city: "芜湖", intro: "科幻与动漫的乐园，欢乐梦想国。"},
+                {name: "六安市万佛湖景区", city: "六安", intro: "湖光山色，百里画廊。"},
+                {name: "马鞍山市长江采石矶文化生态旅游区", city: "马鞍山", intro: "千古一秀，李白终老之地。"},
+                {name: "滁州市琅琊山景区", city: "滁州", intro: "醉翁之意不在酒，在乎山水之间也。"}
+            ],
+            "福建": [
+                {name: "厦门市鼓浪屿风景名胜区", city: "厦门", intro: "万国建筑博览，钢琴之岛，海上花园。"},
+                {name: "南平市武夷山风景名胜区", city: "南平", intro: "碧水丹山，大红袍祖庭，双世遗。"},
+                {name: "福州市三坊七巷景区", city: "福州", intro: "半部中国近代史，明清建筑博物馆。"},
+                {name: "龙岩市古田旅游区", city: "龙岩", intro: "古田会议永放光芒，红色圣地。"},
+                {name: "三明市泰宁风景旅游区", city: "三明", intro: "水上丹霞，尚书第，地质奇观。"},
+                {name: "漳州市土楼（南靖·华安）旅游区", city: "漳州", intro: "神话般的山区建筑，大鱼海棠取景地。"},
+                {name: "宁德市白水洋·鸳鸯溪旅游区", city: "宁德", intro: "亲水天堂，浅水广场，鸳鸯故乡。"},
+                {name: "泉州市清源山景区", city: "泉州", intro: "老君岩，道教名山，闽海蓬莱。"},
+                {name: "宁德市太姥山旅游区", city: "宁德", intro: "海上仙都，花岗岩峰林洞穴博物馆。"},
+                {name: "龙岩市永定·土楼景区", city: "龙岩", intro: "东方古城堡，客家家园。"},
+                {name: "莆田市湄洲岛妈祖文化旅游区", city: "莆田", intro: "妈祖祖庙，海峡两岸心灵原乡。"},
+                {name: "厦门市厦门园林植物园景区", city: "厦门", intro: "万石植物园，多肉森林，雨林世界。"},
+                {name: "龙岩市冠豸山景区", city: "龙岩", intro: "生命之根，生命之门，客家神山。"}
+            ],
+            "江西": [
+                {name: "九江市庐山风景名胜区", city: "九江", intro: "不识庐山真面目，只缘身在此山中。"},
+                {name: "吉安市井冈山风景旅游区", city: "吉安", intro: "中国革命的摇篮，天下第一山。"},
+                {name: "上饶市三清山旅游景区", city: "上饶", intro: "西太平洋边缘最美的花岗岩，道教仙山。"},
+                {name: "鹰潭市龙虎山旅游景区", city: "鹰潭", intro: "道教祖庭，丹霞绝美，悬棺之谜。"},
+                {name: "上饶市婺源江湾景区", city: "上饶", intro: "中国最美乡村，徽派古建，萧江宗祠。"},
+                {name: "景德镇古窑民俗博览区", city: "景德镇", intro: "千年瓷都，活态传承，见证陶瓷历史。"},
+                {name: "瑞金市共和国摇篮旅游区", city: "赣州", intro: "红都瑞金，喝水不忘挖井人。"},
+                {name: "宜春市明月山旅游区", city: "宜春", intro: "月亮文化，富硒温泉，高山草甸。"},
+                {name: "抚州市大觉山景区", city: "抚州", intro: "佛道双修，溯溪探险，生态王国。"},
+                {name: "上饶市龟峰景区", city: "上饶", intro: "无山不龟，无石不龟，丹霞精品。"},
+                {name: "南昌市滕王阁旅游区", city: "南昌", intro: "落霞与孤鹜齐飞，秋水共长天一色。"},
+                {name: "九江市庐山西海景区", city: "九江", intro: "水中仙境，千岛落珠。"},
+                {name: "赣州市三百山景区", city: "赣州", intro: "东江之源，供港水源地。"},
+                {name: "上饶市篁岭景区", city: "上饶", intro: "晒秋人家，梯田花海，最美乡村符号。"}
+            ],
+            "山东": [
+                {name: "泰安市泰山景区", city: "泰安", intro: "五岳独尊，登泰山而小天下。"},
+                {name: "济宁市曲阜明故城（三孔）旅游区", city: "济宁", intro: "孔庙孔府孔林，儒家文化圣地。"},
+                {name: "烟台市蓬莱阁旅游区", city: "烟台", intro: "八仙过海，海市蜃楼，人间仙境。"},
+                {name: "烟台市龙口南山景区", city: "烟台", intro: "南山大佛，福寿南山。"},
+                {name: "青岛市崂山景区", city: "青岛", intro: "海上名山第一，道教圣地。"},
+                {name: "威海市刘公岛景区", city: "威海", intro: "甲午战争纪念地，不沉的战舰。"},
+                {name: "枣庄市台儿庄古城景区", city: "枣庄", intro: "中华古水城，运河文化活化石。"},
+                {name: "济南市天下第一泉景区", city: "济南", intro: "趵突腾空，泉城之魂。"},
+                {name: "临沂市沂蒙山景区", city: "临沂", intro: "蒙山高，沂水长，红色沂蒙。"},
+                {name: "潍坊市青州古城旅游区", city: "潍坊", intro: "东方古州，海岱都会，保存完整的明清古城。"},
+                {name: "威海市华夏城旅游区", city: "威海", intro: "矿坑修复奇迹，实景演艺神游华夏。"},
+                {name: "东营市黄河口生态旅游区", city: "东营", intro: "黄龙入海，新生湿地，鸟类天堂。"},
+                {name: "临沂市萤火虫水洞·地下大峡谷旅游区", city: "临沂", intro: "暗河漂流，星空萤火，地心探秘。"},
+                {name: "济宁市微山湖旅游区", city: "济宁", intro: "铁道游击队故乡，万亩荷塘。"},
+                {name: "青岛市奥帆海洋文化旅游区", city: "青岛", intro: "奥运扬帆地，海上看青岛。"},
+                {name: "淄博市周村古商城景区", city: "淄博", intro: "天下第一村，旱码头，鲁商发源地。"}
+            ],
+            "河南": [
+                {name: "郑州市登封“天地之中”历史建筑群—少林寺", city: "郑州", intro: "天下武功出少林，禅宗祖庭。"},
+                {name: "洛阳市龙门石窟景区", city: "洛阳", intro: "卢舍那大佛，中国石窟艺术的巅峰。"},
+                {name: "焦作市云台山风景名胜区", city: "焦作", intro: "红石峡谷，地质奇观，北方山水代表。"},
+                {name: "安阳市殷墟景区", city: "安阳", intro: "甲骨文出土地，商代都城遗址。"},
+                {name: "洛阳市白云山景区", city: "洛阳", intro: "人间仙境，中原极顶。"},
+                {name: "开封市清明上河园", city: "开封", intro: "一朝步入画卷，一日梦回千年。"},
+                {name: "平顶山市尧山-中原大佛景区", city: "平顶山", intro: "世界最高铜铸立佛，温泉养生。"},
+                {name: "洛阳市老君山-鸡冠洞旅游区", city: "洛阳", intro: "云顶天宫，北国石林。"},
+                {name: "洛阳市龙潭大峡谷景区", city: "洛阳", intro: "古海洋遗迹，峡谷奇观。"},
+                {name: "南阳市恐龙遗迹园景区", city: "南阳", intro: "恐龙蛋化石库，重返白垩纪。"},
+                {name: "驻马店市嵖岈山旅游景区", city: "驻马店", intro: "西游记外景地，奇石盆景。"},
+                {name: "安阳市红旗渠·太行大峡谷旅游区", city: "安阳", intro: "人工天河，世界第八大奇迹。"},
+                {name: "永城市芒砀山旅游景区", city: "商丘", intro: "汉兴之地，梁王陵墓，汉画像石。"},
+                {name: "新乡市八里沟景区", city: "新乡", intro: "太行之魂，北方水世界。"},
+                {name: "信阳市鸡公山景区", city: "信阳", intro: "万国建筑博览，避暑胜地。"},
+                {name: "周口市太昊伏羲陵文化旅游区", city: "周口", intro: "天下第一陵，人祖伏羲。"},
+                {name: "新乡市宝泉旅游区", city: "新乡", intro: "碧水丹山，中原小九寨，悬崖上的游乐场。"}
+            ],
+            "湖北": [
+                {name: "武汉市黄鹤楼公园", city: "武汉", intro: "昔人已乘黄鹤去，天下江山第一楼。"},
+                {name: "宜昌市三峡大坝-屈原故里旅游区", city: "宜昌", intro: "高峡出平湖，大国重器，离骚发源。"},
+                {name: "宜昌市三峡人家风景区", city: "宜昌", intro: "一肩挑两坝，一江携两溪，巴风楚韵。"},
+                {name: "十堰市武当山风景区", city: "十堰", intro: "亘古无双胜境，天下第一仙山，太极故里。"},
+                {name: "恩施州神农溪纤夫文化旅游区", city: "恩施", intro: "原始古朴，裸体纤夫，土家风情。"},
+                {name: "神农架旅游区", city: "神农架", intro: "野人之谜，华中屋脊，原始森林。"},
+                {name: "宜昌市清江画廊景区", city: "宜昌", intro: "八百里清江美如画，土家母亲河。"},
+                {name: "武汉市东湖景区", city: "武汉", intro: "国内最大城中湖，绿道骑行，樱花胜地。"},
+                {name: "武汉市黄陂木兰文化生态旅游区", city: "武汉", intro: "木兰故里，草原、天池、云雾山。"},
+                {name: "恩施州恩施大峡谷景区", city: "恩施", intro: "地球最美伤痕，一炷香奇观。"},
+                {name: "咸宁市三国赤壁古战场景区", city: "咸宁", intro: "折戟沉沙铁未销，火烧赤壁。"},
+                {name: "襄阳市古隆中景区", city: "襄阳", intro: "三顾茅庐，诸葛亮躬耕之地。"},
+                {name: "恩施州腾龙洞景区", city: "恩施", intro: "吞江吐雾，直升机可飞入的超级溶洞。"},
+                {name: "宜昌市三峡大瀑布景区", city: "宜昌", intro: "穿越瀑布，中国十大名瀑。"},
+                {name: "荆门市明显陵文化旅游景区", city: "荆门", intro: "一陵两冢，明代帝陵孤例。"},
+                {name: "黄冈市麻城龟峰山景区", city: "黄冈", intro: "人间四月天，麻城看杜鹃，天下第一龟。"}
+            ],
+            "湖南": [
+                {name: "张家界武陵源旅游区", city: "张家界", intro: "缩小的仙境，放大的盆景，奇峰三千。"}, // 拆分
+                {name: "张家界天门山旅游区", city: "张家界", intro: "天门洞开，云梦仙顶，世界公路奇观。"}, // 拆分
+                {name: "衡阳市南岳衡山旅游区", city: "衡阳", intro: "寿岳衡山，佛道共存。"},
+                {name: "湘潭市韶山旅游区", city: "湘潭", intro: "红太阳升起的地方，主席故居。"},
+                {name: "岳阳市岳阳楼-君山岛景区", city: "岳阳", intro: "先天下之忧而忧，洞庭天下水。"},
+                {name: "长沙市岳麓山·橘子洲旅游区", city: "长沙", intro: "停车坐爱枫林晚，独立寒秋湘江北去。"},
+                {name: "长沙市花明楼景区", city: "长沙", intro: "刘少奇故里，明清建筑。"},
+                {name: "郴州市东江湖旅游区", city: "郴州", intro: "雾漫小东江，中华奇景。"},
+                {name: "邵阳市崀山景区", city: "邵阳", intro: "丹霞之魂，将军石，辣椒峰。"},
+                {name: "株洲市炎帝陵景区", city: "株洲", intro: "神州第一陵，中华民族始祖。"},
+                {name: "常德市桃花源旅游区", city: "常德", intro: "陶渊明笔下的世外桃源，心中的乌托邦。"},
+                {name: "以矮寨·十八洞·德夯大峡谷景区", city: "湘西", intro: "百年路桥奇观，精准扶贫首倡地。"},
+                {name: "湘西土家族苗族自治州凤凰古城旅游区", city: "湘西", intro: "中国最美的小城，吊脚楼，沱江水。"}
+            ],
+            "广东": [
+                {name: "广州市长隆旅游度假区", city: "广州", intro: "欢乐世界，野生动物，马戏盛宴。"},
+                {name: "深圳市华侨城旅游度假区", city: "深圳", intro: "锦绣中华，世界之窗，欢乐谷。"},
+                {name: "广州市白云山风景区", city: "广州", intro: "羊城第一秀，城市绿肺。"},
+                {name: "梅州市雁南飞茶田景区", city: "梅州", intro: "客家围屋，茶田风光。"},
+                {name: "深圳市观澜湖休闲旅游区", city: "深圳", intro: "高尔夫休闲胜地。"},
+                {name: "清远市连州地下河旅游景区", city: "清远", intro: "洞河仙境，地下长城。"},
+                {name: "韶关市丹霞山景区", city: "韶关", intro: "色如渥丹，灿若明霞，阳元石奇观。"},
+                {name: "佛山市西樵山景区", city: "佛山", intro: "南拳发源地，黄飞鸿故里，南海观音。"},
+                {name: "惠州市罗浮山景区", city: "惠州", intro: "岭南第一山，道教洞天福地。"},
+                {name: "佛山市长鹿旅游休博园", city: "佛山", intro: "岭南水乡，农家野趣。"},
+                {name: "阳江市海陵岛大角湾海上丝路旅游区", city: "阳江", intro: "南海一号，十里银滩。"},
+                {name: "中山市孙中山故里旅游区", city: "中山", intro: "天下为公，革命先行者摇篮。"},
+                {name: "江门市开平碉楼文化旅游区", city: "江门", intro: "中西合璧，华侨建筑瑰宝。"},
+                {name: "肇庆市星湖旅游景区", city: "肇庆", intro: "七星岩，鼎湖山，北斗七星落凡尘。"},
+                {name: "河源市万绿湖风景区", city: "河源", intro: "天上瑶池水，人间万绿湖，华南第一湖。"}
+            ],
+            "广西": [
+                {name: "桂林市漓江景区", city: "桂林", intro: "江作青罗带，山如碧玉簪，百里画廊。"},
+                {name: "桂林市乐满地度假世界", city: "桂林", intro: "欢乐王国，山水间的乐园。"},
+                {name: "桂林市独秀峰-王城景区", city: "桂林", intro: "阅尽王城知桂林，靖江王府。"},
+                {name: "桂林市两江四湖·象山景区", city: "桂林", intro: "象鼻山，桂林城徽，环城水系。"},
+                {name: "南宁市青秀山旅游区", city: "南宁", intro: "城市绿肺，苏铁王国。"},
+                {name: "崇左市德天跨国瀑布景区", city: "崇左", intro: "亚洲最大跨国瀑布，气势磅礴。"},
+                {name: "百色市百色起义纪念园景区", city: "百色", intro: "红色记忆，千秋伟业。"},
+                {name: "北海市涠洲岛南湾鳄鱼山景区", city: "北海", intro: "中国最年轻的火山岛，海枯石烂。"},
+                {name: "贺州市黄姚古镇景区", city: "贺州", intro: "梦境家园，喀斯特地貌下的古镇。"},
+                {name: "柳州市程阳八寨景区", city: "柳州", intro: "世界四大历史名桥之一永济桥，侗族风情。"},
+                {name: "崇左市花山岩画景区", city: "崇左", intro: "断崖上的千年密码，壮族先民的艺术杰作。"}
+            ],
+            "海南": [
+                {name: "三亚市南山文化旅游区", city: "三亚", intro: "海上观音，寿比南山。"},
+                {name: "三亚市南山大小洞天旅游区", city: "三亚", intro: "琼崖八百年第一山水名胜，道教文化。"},
+                {name: "三亚市蜈支洲岛旅游区", city: "三亚", intro: "中国马尔代夫，潜水天堂。"},
+                {name: "陵水县分界洲岛旅游区", city: "陵水", intro: "心灵分界线，热带海岛风情。"},
+                {name: "保亭县槟榔谷黎苗文化旅游区", city: "保亭", intro: "黎苗风情，非遗活体博物馆。"},
+                {name: "保亭县呀诺达雨林文化旅游区", city: "保亭", intro: "热带雨林，踏瀑戏水，天然氧吧。"},
+                {name: "三亚市天涯海角游览区", city: "三亚", intro: "陪你到天涯海角，爱情的见证。"}
+            ],
+            "重庆": [
+                {name: "重庆大足石刻景区", city: "重庆", intro: "崖壁上的艺术，中国石窟晚期巅峰。"},
+                {name: "重庆巫山小三峡-小小三峡", city: "重庆", intro: "中华奇观，天下绝景。"},
+                {name: "重庆武隆喀斯特旅游区", city: "重庆", intro: "天生三桥，地缝奇观，满城尽带黄金甲。"},
+                {name: "重庆酉阳桃花源景区", city: "重庆", intro: "远离尘世，洞天福地。"},
+                {name: "重庆万盛黑山谷景区", city: "重庆", intro: "渝黔生物基因库，山崩地裂。"},
+                {name: "重庆南川金佛山", city: "重庆", intro: "天下第一桌山，植物王国。"},
+                {name: "重庆江津四面山景区", city: "重庆", intro: "千瀑之乡，丹霞赤壁，爱情天梯。"},
+                {name: "重庆彭水阿依河景区", city: "重庆", intro: "巴山蜀水，峡谷漂流。"},
+                {name: "重庆黔江濯水景区", city: "重庆", intro: "世界第一风雨桥，苍天有眼。"},
+                {name: "重庆奉节白帝城·瞿塘峡景区", city: "重庆", intro: "朝辞白帝彩云间，夔门天下雄。"},
+                {name: "重庆涪陵武陵山大裂谷景区", city: "重庆", intro: "中国第一动感峡谷，地球上最古老的伤痕。"}
+            ],
+            "四川": [
+                {name: "成都市青城山-都江堰旅游景区", city: "成都", intro: "拜水都江堰，问道青城山。"},
+                {name: "乐山市峨眉山景区", city: "乐山", intro: "秀甲天下，金顶佛光，灵猴嬉戏。"},
+                {name: "阿坝州九寨沟旅游景区", city: "阿坝", intro: "九寨归来不看水，童话世界。"},
+                {name: "乐山市乐山大佛景区", city: "乐山", intro: "山是一尊佛，佛是一座山。"},
+                {name: "阿坝州黄龙景区", city: "阿坝", intro: "人间瑶池，彩池滩流，五彩斑斓。"},
+                {name: "阿坝州汶川特别旅游区", city: "阿坝", intro: "地震遗址，生命赞歌，爱的力量。"},
+                {name: "绵阳市北川羌城旅游区", city: "绵阳", intro: "大爱无疆，羌族文化，重生奇迹。"},
+                {name: "广安市邓小平故里旅游区", city: "广安", intro: "改革开放总设计师故乡。"},
+                {name: "南充市阆中古城旅游区", city: "南充", intro: "风水古城，张飞驻守之地。"},
+                {name: "广元市剑门蜀道剑门关旅游区", city: "广元", intro: "一夫当关，万夫莫开。"},
+                {name: "雅安市碧峰峡旅游区", city: "雅安", intro: "大熊猫基地，峡谷幽深。"},
+                {name: "巴中市光雾山旅游景区", city: "巴中", intro: "亚洲最长红叶地毯，云雾缭绕。"},
+                {name: "甘孜州稻城亚丁旅游景区", city: "甘孜", intro: "蓝色星球上最后一片净土，香格里拉之魂。"},
+                {name: "甘孜州海螺沟景区", city: "甘孜", intro: "低海拔现代冰川，温泉与雪山共存。"},
+                {name: "成都市安仁古镇景区", city: "成都", intro: "中国博物馆小镇，刘氏庄园。"},
+                {name: "阿坝州四姑娘山景区", city: "阿坝", intro: "蜀山皇后，东方阿尔卑斯。"},
+                {name: "成都市天台山景区", city: "成都", intro: "山奇、石怪、水美、林幽，高山萤火虫之乡。"}
+            ],
+            "贵州": [
+                {name: "安顺市黄果树大瀑布景区", city: "安顺", intro: "亚洲第一大瀑布，西游记水帘洞。"},
+                {name: "安顺市龙宫景区", city: "安顺", intro: "水上溶洞，中国最长最美水溶洞。"},
+                {name: "毕节市百里杜鹃景区", city: "毕节", intro: "地球彩带，世界花园。"},
+                {name: "黔南州荔波樟江景区", city: "黔南", intro: "地球腰带上的绿宝石，小七孔秀美。"},
+                {name: "贵阳市青岩古镇景区", city: "贵阳", intro: "攻不破的石头城，状元故里。"},
+                {name: "铜仁市梵净山旅游区", city: "铜仁", intro: "弥勒道场，红云金顶，天空之城。"},
+                {name: "黔东南州镇远古城旅游景区", city: "黔东南", intro: "东方威尼斯，太极图上的古城。"},
+                {name: "遵义市赤水丹霞旅游区", city: "遵义", intro: "丹霞飞瀑，竹海桫椤。"},
+                {name: "毕节市织金洞景区", city: "毕节", intro: "溶洞之王，黄山归来不看岳，织金洞外无洞天。"},
+                {name: "黔西南州万峰林景区", city: "黔西南", intro: "天下山峰何其多，唯有此处峰成林，八卦田奇观。"}
+            ],
+            "云南": [
+                {name: "昆明市石林风景区", city: "昆明", intro: "世界喀斯特地貌的精华，阿诗玛故乡。"},
+                {name: "丽江市玉龙雪山景区", city: "丽江", intro: "纳西神山，冰川公园，印象丽江。"},
+                {name: "丽江市丽江古城景区", city: "丽江", intro: "艳遇之都，小桥流水，木府风云。"},
+                {name: "大理市崇圣寺三塔文化旅游区", city: "大理", intro: "妙香佛国，大理地标。"},
+                {name: "西双版纳热带植物园", city: "西双版纳", intro: "植物王国，热带天堂。"},
+                {name: "迪庆州普达措景区", city: "迪庆", intro: "香格里拉，高原湖泊，纯净之地。"},
+                {name: "昆明市世博园景区", city: "昆明", intro: "人与自然，99世博会会址。"},
+                {name: "保山市腾冲火山热海旅游区", city: "保山", intro: "大滚锅，地热奇观，火山地质。"},
+                {name: "文山州普者黑旅游景区", city: "文山", intro: "水上田园，荷花世界，爸爸去哪儿拍摄地。"},
+                {name: "保山市腾冲和顺古镇景区", city: "保山", intro: "中国第一魅力名镇，侨乡文化，书香门第。"}
+            ],
+            "西藏": [
+                {name: "拉萨市布达拉宫景区", city: "拉萨", intro: "世界屋脊上的明珠，藏传佛教圣地。"},
+                {name: "拉萨市大昭寺", city: "拉萨", intro: "觉卧佛像，藏民心中的圣殿。"},
+                {name: "林芝市巴松措景区", city: "林芝", intro: "绿色的水，红教圣湖，湖心岛。"},
+                {name: "日喀则市扎什伦布寺景区", city: "日喀则", intro: "班禅驻锡地，最大的强巴佛。"},
+                {name: "林芝市雅鲁藏布大峡谷旅游景区", city: "林芝", intro: "世界第一大峡谷，南迦巴瓦峰。"}
+            ],
+            "陕西": [
+                {name: "西安市秦始皇兵马俑博物馆", city: "西安", intro: "世界第八大奇迹，千古一帝地下军团。"},
+                {name: "西安市华清池景区", city: "西安", intro: "温泉水滑洗凝脂，长恨歌凄美爱情。"},
+                {name: "延安市黄帝陵景区", city: "延安", intro: "中华第一陵，人文初祖。"},
+                {name: "西安市大雁塔·大唐芙蓉园景区", city: "西安", intro: "梦回大唐，玄奘译经，盛世长安。"},
+                {name: "渭南市华山景区", city: "渭南", intro: "奇险天下第一山，长空栈道。"},
+                {name: "宝鸡市法门寺佛文化景区", city: "宝鸡", intro: "佛指舍利，关中塔庙始祖。"},
+                {name: "商洛市金丝峡景区", city: "商洛", intro: "秦岭奇观，峡谷幽深。"},
+                {name: "宝鸡市太白山旅游景区", city: "宝鸡", intro: "秦岭主峰，六月积雪。"},
+                {name: "西安市城墙·碑林历史文化景区", city: "西安", intro: "古城铁壁，书法宝库。"},
+                {name: "延安市延安革命纪念地景区", city: "延安", intro: "宝塔山下，延河水边，革命圣地。"},
+                {name: "西安市大明宫旅游景区", city: "西安", intro: "千宫之宫，丝绸之路东方圣殿。"},
+                {name: "延安市黄河壶口瀑布旅游区", city: "延安", intro: "千里黄河一壶收，民族精神咆哮。"},
+                {name: "延安市延川黄河乾坤湾景区", city: "延安", intro: "天下黄河九十九道弯，最美在乾坤。"},
+                {name: "咸阳市乾陵景区", city: "咸阳", intro: "武则天与李治合葬墓，无字碑诉说千秋功过。"}
+            ],
+            "甘肃": [
+                {name: "嘉峪关市嘉峪关文物景区", city: "嘉峪关", intro: "天下第一雄关，长城西端起点。"},
+                {name: "平凉市崆峒山风景名胜区", city: "平凉", intro: "道教第一山，黄帝问道之处。"},
+                {name: "天水市麦积山景区", city: "天水", intro: "东方雕塑陈列馆，悬崖上的蜂巢。"},
+                {name: "敦煌市鸣沙山月牙泉景区", city: "酒泉", intro: "山泉共处，沙岭晴鸣。"},
+                {name: "张掖市七彩丹霞景区", city: "张掖", intro: "上帝打翻的调色盘，中国最美丹霞。"},
+                {name: "临夏州炳灵寺世界文化遗产旅游区", city: "临夏", intro: "十万佛洲，黄河石林。"},
+                {name: "陇南市官鹅沟景区", city: "陇南", intro: "小九寨，神象沐浴。"},
+                {name: "甘南州冶力关旅游区", city: "甘南", intro: "生态大观园，兰州后花园，高山草甸。"}
+            ],
+            "青海": [
+                {name: "青海湖景区", city: "海南", intro: "高原蓝宝石，中国最大咸水湖。"},
+                {name: "西宁市塔尔寺景区", city: "西宁", intro: "藏传佛教格鲁派六大寺院之一，酥油花。"},
+                {name: "海北州阿咪东索景区", city: "海北", intro: "千兵哨卡，牛心山。"},
+                {name: "海北州金银滩-原子城景区", city: "海北", intro: "在那遥远的地方，中国原子弹诞生地。"}
+            ],
+            "宁夏": [
+                {name: "石嘴山市沙湖旅游景区", city: "石嘴山", intro: "塞上江南，沙水相依。"},
+                {name: "中卫市沙坡头旅游景区", city: "中卫", intro: "大漠孤烟直，长河落日圆。"},
+                {name: "银川市镇北堡西部影城", city: "银川", intro: "中国电影从这里走向世界，大话西游。"},
+                {name: "银川市水洞沟旅游区", city: "银川", intro: "史前遗址，长城立体军事防御体系。"},
+                {name: "吴忠市青铜峡黄河大峡谷旅游区", city: "吴忠", intro: "黄河中上游第一峡，十里长峡十里画。"},
+                {name: "固原市六盘山红军长征旅游区", city: "固原", intro: "胜利之山，红旗漫卷西风。"}
+            ],
+            "新疆": [
+                {name: "昌吉州天山天池景区", city: "昌吉", intro: "瑶池仙境，雪山云杉。"},
+                {name: "吐鲁番市葡萄沟风景区", city: "吐鲁番", intro: "火洲绿洲，葡萄世界。"},
+                {name: "阿勒泰地区喀纳斯景区", city: "阿勒泰", intro: "神的后花园，水怪传说，变色湖。"},
+                {name: "伊犁州那拉提旅游风景区", city: "伊犁", intro: "空中草原，哈萨克风情。"},
+                {name: "阿勒泰地区可可托海景区", city: "阿勒泰", intro: "地质矿产博物馆，神钟山。"},
+                {name: "喀什地区泽普金湖杨景区", city: "喀什", intro: "戈壁绿洲，胡杨礼赞。"},
+                {name: "乌鲁木齐市天山大峡谷景区", city: "乌鲁木齐", intro: "百里丹霞，雪山湖泊。"},
+                {name: "巴音郭楞州博斯腾湖景区", city: "巴音郭楞", intro: "西海明珠，最大的内陆淡水湖。"},
+                {name: "喀什地区喀什古城景区", city: "喀什", intro: "不到喀什不算到新疆，西域活化石。"},
+                {name: "伊犁州喀拉峻景区", city: "伊犁", intro: "立体草原，人体草原，世界自然遗产。"},
+                {name: "巴音郭楞州巴音布鲁克景区", city: "巴音郭楞", intro: "九曲十八弯，天鹅故乡。"},
+                {name: "克拉玛依市世界魔鬼城景区", city: "克拉玛依", intro: "雅丹地貌，风蚀城堡。"},
+                {name: "塔城地区江格尔故里旅游景区", city: "塔城", intro: "英雄史诗，草原文化。"},
+                {name: "新疆生产建设兵团第十师185团白沙湖景区", city: "兵团", intro: "沙漠奇景，边关风情。"},
+                {name: "赛里木湖景区", city: "博尔塔拉", intro: "大西洋最后一滴眼泪。"},
+                {name: "塔克拉玛干·三五九旅文化旅游区", city: "阿拉尔", intro: "沙漠之门，兵团精神。"},
+                {name: "阿克苏地区天山托木尔景区", city: "阿克苏", intro: "天山最高峰，冰川之父，雄奇壮美。"},
+                {name: "喀什地区帕米尔旅游区", city: "喀什", intro: "万山之祖，高原湖泊，塔吉克风情。"} // 补充遗漏
+            ]
+        };
+
+        // 扁平化数据用于统计
+        let flatData = [];
+
+        function init() {
+            const container = document.getElementById('scenic-container');
+            let totalCount = 0;
+
+            // 遍历省份
+            for (const [province, spots] of Object.entries(scenicData)) {
+                // 省份标题
+                const provHeader = document.createElement('div');
+                provHeader.className = "mb-2 mt-8 flex items-end gap-3";
+                provHeader.innerHTML = `<h2 class="text-3xl font-bold text-white neon-text">${province}</h2><span class="text-slate-500 text-sm mb-1">${spots.length}个景区</span><div class="h-px bg-slate-700 flex-grow mb-2"></div>`;
+                container.appendChild(provHeader);
+
+                // 景区横向滚动容器
+                const row = document.createElement('div');
+                row.className = "province-row pb-4";
+                
+                spots.forEach((spot, index) => {
+                    totalCount++;
+                    const id = `spot-${province}-${index}`;
+                    const spotObj = {...spot, id, province};
+                    flatData.push(spotObj);
+
+                    const card = document.createElement('div');
+                    card.className = "card rounded-xl overflow-hidden border border-slate-700 neon-box flex flex-col relative group";
+                    
+                    // 图片URL (使用Bing动态)
+                    const imgUrl = `https://tse2.mm.bing.net/th?q=${encodeURIComponent(spot.name + '风景高清')}&w=300&h=200&c=7&rs=1`;
+                    // 默认文字
+                    const intro = spot.intro || "国家5A级旅游景区，中华大地的瑰宝。";
+
+                    card.innerHTML = `
+                        <div class="relative h-40 overflow-hidden bg-slate-800">
+                            <span class="absolute top-2 right-2 bg-black/60 backdrop-blur text-xs px-2 py-1 rounded text-cyan-300 z-10 border border-cyan-900/50">📍 ${spot.city}</span>
+                            <img src="${imgUrl}" alt="${spot.name}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 img-loading" onload="this.classList.remove('img-loading')" onerror="this.src='https://via.placeholder.com/300x200?text=暂无图片'">
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent opacity-80"></div>
+                            <h3 class="absolute bottom-2 left-3 text-lg font-bold text-white leading-tight drop-shadow-md pr-2">${spot.name}</h3>
+                        </div>
+                        
+                        <div class="p-4 flex flex-col flex-grow justify-between">
+                            <p class="text-xs text-slate-400 mb-3 line-clamp-2 min-h-[2.5em]" title="${intro}">${intro}</p>
+                            
+                            <div class="space-y-3">
+                                <!-- 状态选择 -->
+                                <div class="flex bg-slate-800 rounded-lg p-1 text-xs">
+                                    <input type="radio" name="status-${id}" id="visited-${id}" value="visited" class="hidden" onchange="updateStats('${id}')">
+                                    <label for="visited-${id}" class="flex-1 text-center py-1 rounded cursor-pointer transition-colors hover:bg-slate-700">已游览</label>
+                                    
+                                    <input type="radio" name="status-${id}" id="plan-${id}" value="plan" class="hidden plan" onchange="updateStats('${id}')">
+                                    <label for="plan-${id}" class="flex-1 text-center py-1 rounded cursor-pointer transition-colors hover:bg-slate-700">计划去</label>
+                                    
+                                    <input type="radio" name="status-${id}" id="ignore-${id}" value="ignore" class="hidden ignore" checked onchange="updateStats('${id}')">
+                                    <label for="ignore-${id}" class="flex-1 text-center py-1 rounded cursor-pointer transition-colors hover:bg-slate-700">未打卡</label>
+                                </div>
+
+                                <!-- 扩展输入区 -->
+                                <div class="grid grid-cols-2 gap-2 opacity-100 transition-opacity" id="inputs-${id}">
+                                    <input type="date" id="date-${id}" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-500" title="游览日期">
+                                    <input type="text" id="note-${id}" placeholder="备注/印象" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    row.appendChild(card);
+                });
+                
+                container.appendChild(row);
+            }
+            
+            // 修正总数显示
+            document.getElementById('stat-total').innerText = totalCount;
+            loadFromStorage();
+            updateDashboard();
+        }
+
+        // 状态更新
+        function updateStats(id) {
+            updateDashboard();
+            saveToStorage();
+        }
+
+        function updateDashboard() {
+            let visited = 0;
+            let plan = 0;
+            
+            flatData.forEach(item => {
+                const isVisited = document.getElementById(`visited-${item.id}`).checked;
+                const isPlan = document.getElementById(`plan-${item.id}`).checked;
+                if(isVisited) visited++;
+                if(isPlan) plan++;
+            });
+
+            animateValue("stat-visited", parseInt(document.getElementById("stat-visited").innerText), visited, 500);
+            animateValue("stat-plan", parseInt(document.getElementById("stat-plan").innerText), plan, 500);
+        }
+
+        // 数字动画
+        function animateValue(id, start, end, duration) {
+            if (start === end) return;
+            const range = end - start;
+            let current = start;
+            const increment = end > start ? 1 : -1;
+            const stepTime = Math.abs(Math.floor(duration / range));
+            const obj = document.getElementById(id);
+            const timer = setInterval(function() {
+                current += increment;
+                obj.innerHTML = current;
+                if (current == end) {
+                    clearInterval(timer);
+                }
+            }, stepTime > 0 ? stepTime : 10);
+        }
+
+        // 本地存储
+        function saveToStorage() {
+            const data = {
+                visitor: document.getElementById('visitorName').value,
+                recordDate: document.getElementById('recordDate').value,
+                spots: {}
+            };
+            
+            flatData.forEach(item => {
+                const status = document.querySelector(`input[name="status-${item.id}"]:checked`).value;
+                const date = document.getElementById(`date-${item.id}`).value;
+                const note = document.getElementById(`note-${item.id}`).value;
+                
+                if (status !== 'ignore' || date || note) {
+                    data.spots[item.id] = { status, date, note };
+                }
+            });
+            
+            localStorage.setItem('china5a_footprint', JSON.stringify(data));
+        }
+
+        function loadFromStorage() {
+            const saved = localStorage.getItem('china5a_footprint');
+            if (!saved) return;
+            
+            const data = JSON.parse(saved);
+            if(data.visitor) document.getElementById('visitorName').value = data.visitor;
+            if(data.recordDate) document.getElementById('recordDate').value = data.recordDate;
+            
+            if (data.spots) {
+                for (const [id, info] of Object.entries(data.spots)) {
+                    if (document.getElementById(`visited-${id}`)) {
+                        // 恢复状态
+                        if(info.status) {
+                            document.querySelector(`input[name="status-${id}"][value="${info.status}"]`).checked = true;
+                        }
+                        if(info.date) document.getElementById(`date-${id}`).value = info.date;
+                        if(info.note) document.getElementById(`note-${id}`).value = info.note;
+                    }
+                }
+            }
+        }
+
+        // 导出Excel
+        function exportToExcel() {
+            const visitor = document.getElementById('visitorName').value || "游客";
+            const date = document.getElementById('recordDate').value || new Date().toLocaleDateString();
+            
+            // 构建Excel数据
+            const excelData = [
+                ["我的中国5A景区足迹表"],
+                [`游客姓名：${visitor}`, `填表日期：${date}`],
+                ["省份", "城市", "景区名称", "游览状态", "游览日期", "备注", "特色简介"]
+            ];
+
+            flatData.forEach(item => {
+                const statusInput = document.querySelector(`input[name="status-${item.id}"]:checked`);
+                let statusText = "未打卡";
+                if(statusInput.value === 'visited') statusText = "已游览";
+                if(statusInput.value === 'plan') statusText = "计划去";
+                if(statusInput.value === 'ignore') statusText = "不考虑";
+                
+                const visitDate = document.getElementById(`date-${item.id}`).value;
+                const note = document.getElementById(`note-${item.id}`).value;
+
+                excelData.push([
+                    item.province,
+                    item.city,
+                    item.name,
+                    statusText,
+                    visitDate,
+                    note,
+                    item.intro
+                ]);
+            });
+
+            // 创建工作簿
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            
+            // 设置列宽
+            ws['!cols'] = [{wch:10}, {wch:10}, {wch:30}, {wch:10}, {wch:15}, {wch:20}, {wch:40}];
+            
+            // 合并标题行
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } }
+            ];
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "5A足迹");
+
+            // 下载文件
+            XLSX.writeFile(wb, `${visitor}_中国5A景区足迹_${date}.xlsx`);
+        }
+
+        // 自动保存监听
+        document.getElementById('visitorName').addEventListener('input', saveToStorage);
+        document.getElementById('recordDate').addEventListener('change', saveToStorage);
+
+        // 初始化
+        init();
+
+    </script>
+</body>
+</html>
